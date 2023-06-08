@@ -24,7 +24,7 @@ RTSP是一个实时传输流协议，是一个应用层的协议。通常说的R
 
 三者的关系：
 
-* rtp并不会发送媒体数据，只是完成服务器和客户端之间的信令交互，rtp协议负责媒体数据传输，rtcp负责rtp数据包的监视和反馈。
+* rstp并不会发送媒体数据，只是完成服务器和客户端之间的信令交互，rtp协议负责媒体数据传输，rtcp负责rtp数据包的监视和反馈。
 * rtp和rtcp并没有规定传输层的类型，可以选中udp和tcp。
 * RTSP的传输层要求是基于tcp。
 
@@ -191,6 +191,381 @@ Range的值为`npt=0.000-` ： 表示一直播放，相当于直播类型的，�
 
 ![image-20230519000346448](从零编写一个RTSP服务器.assets/image-20230519000346448.png)
 
+## 可选：ffmepg入门教程
+
+ffmpeg 是一个包含了音视频开发行业种大部分开发需求的开源项目。
+
+主要有两种使用方式：
+
+* 第一种方式：直接用ffmpeg提供的命令行工具
+  * 优点：简单、易上手，只需属性一些ffmpeg的命令行文档，就可以做一些音视频的操作了。
+  * 缺点：不能在同一个进程种处理音视频任务
+* 第二种方式：基于ffmpeg的源代码作为依赖库开发
+  * 这种方式需要至少掌握c/c++编程语言（其他语言的版本可以较不全面），在安装ffmpeg时，还需要解决ffmpeg在操作系统的编译安装等问题。
+
+### ffmpeg 三大命令行工具
+
+* ffmpeg 主要是多媒体的编解码工具，具体功能主要包括视频裁剪、去除水印、添加logo、提取封面、提取音频、提取视频等功能。
+
+* ffplay 提供了音视频显示和播放相关的图像信息，音频的波形信息等。简而言之就是一个播放器。
+* ffprobe 是多媒体分析工具，比如音视频的参数、媒体容器的参数信息等。也可以分析媒体文件种每个包的长度、包的类型、帧的信息等。
+
+### 案例演示
+
+#### 1. ffmpeg 命令行 视频生成图片
+
+```txt
+ffmpeg -i input.mp4  -r 25 -f image2  data/image%3d.jpg
+
+image%3d.jpg 表示生成的图片序号为3个数字
+image%d.jpg 表示生成的图片序号依次增加
+
+备注：
+-r 25  帧数
+-f image2 格式化的格式
+```
+
+#### 2. ffmpeg 命令行 图片合成视频
+
+将文件夹里面的frame%d.jpg格式的图片按顺序合并成视频
+
+```cmd
+ffmpeg -r 1 -f image2 -i data/%d.jpg -vcodec libx264 -s 640*480 -g 1 -keyint_min 1 -sc_threshold 0 -pix_fmt yuv420p out.mp4
+```
+
+备注：
+
+```txt
+-vcodec libx264  指定合成视频的编码格式为h264
+-r 1  fps等于1 （注意这个参数需要写在 -f 之前，具体什么原因，未去研究源码。写在后面，不起效果）
+-s 640*480   分辨率
+-g 1  GOP长度
+-keyint_min 1   keyint表示关键帧（IDR帧）间隔，这个选项表示限制IDR帧间隔最小为1帧，与设置的GOP等长
+-sc_threshold 0  禁用场景识别，即进制自动添加IDR帧
+-pix_fmt  yuv420p  帧格式
+-vf scale=1280:-1  指定合成视频的分辨率自适应宽为1280，高按照比例计算
+```
+
+#### 3. ffmpeg 命令行 电脑的摄像头推拉流
+
+**ffmpeg查看摄像头信息**
+
+```txt
+查看摄像头列表
+ffmpeg -list_devices true -f dshow -i dummy
+
+播放摄像头
+ffplay -f dshow -i video="FULL HD webcam" # FULL HD webcam 是通过查看列表的命令行获取的名称
+
+查看摄像头的分辨率格式
+ffmpeg -list_options true -f dshow -i video="FULL HD webcam"
+```
+
+**ffmpeg摄像头推流RTSP&RTMP**
+
+摄像头推流到RTMP服务
+
+```cmd
+ffmpeg -f dshow -i video="USB webcam" -vcodec libx264 -acodec aac -ar 44100 -ac 1 -r 25 -s 1920*1080 -f flv rtmp://192.168.1.3/live/desktop
+```
+
+摄像头推流到RTSP（rtp over tcp）
+
+```cmd
+ffmpeg -f dshow -i video="FULL HD webcam" -rtsp_transport tcp -vcodec libx264 -preset ultrafast -acodec libmp3lame -ar 44100 -ac 1 -r 25 -f rtsp rtsp://192.168.0.1/webcam
+```
+
+#### 4. ffmpeg 命令行 电脑的桌面推拉流
+
+**ffmpeg桌面推流RTSP&RTMP**
+
+windows桌面推流到RTMP服务
+
+```cmd
+ffmpeg -f gdigrab -i desktop -vcodec libx264 -preset ultrafast -acodec libmp3lame -ar 44100 -ac 1 -r 25 -s 1920*1080 -f flv rtmp://192.168.1.3/live/desktop
+```
+
+windows桌面推流到RTSP服务（rtp over udp）
+
+```cmd
+ffmpeg -f gdigrab -i desktop -vcodec libx264 -preset ultrafast -acodec libmp3lame -ar 44100 -ac 1 -r 25 -f rtsp rtsp://192.168.0.1/desktop
+```
+
+**ffmpeg基本推拉流命令**
+
+RTMP推流
+
+```cmd
+ffmepg -re -i input.flv -f flv -r 25 -s 1920*1080 -an "rtmp://192.168.0.200/live/test"
+```
+
+RTSP拉流转RTMP推流
+
+```cmd
+ffmpeg -rtsp_transport tcp -i "rtsp://amdin:12345678@192.168.0.2" -f flv -c:v copy -a:v copy -r 25 -s 1920*1080 "rtmp://192.168.0.200/live/test"
+```
+
+本地视频文件RTSP推流（tcp）
+
+```cmd
+ffmpeg -re -i input.mp4 -rtsp_transport tcp -vcodec h264 -acodec copy -f rtsp rtsp://localhost/test 
+```
+
+本地视频文件RTSP推流（udp）
+
+```cmd
+ffmpeg -re -i input.mp4 -rtsp_transport udp -vcodec h264 -acodec copy -f rtsp rtsp://localhost/test
+```
+
+RTSP拉流并播放（tcp）
+
+```cmd
+ffplay -i rtsp_transport tcp rtsp://localhost/test
+```
+
+RTSP拉流并播放（udp）
+
+```cmd
+ffplay -i rtsp://localhost/test
+```
+
+#### 5. ffmpeg 基本操作命令
+
+```txt
+生成m3u8切片（1）
+
+ffmpeg -i input.mp4 -c:v libx264 -c:a copy -f hls -hls_time 10 -hls_list_size 0
+-hls_start_number 0 input/index.m3u8
+备注：-hls_time n: 设置每片的长度，默认值为2。单位为秒
+-hls_list_size n:设置播放列表保存的最多条目，设置为0会保存有所片信息，默认值为5
+-hls_start_number n:设置播放列表中sequence number的值为number，默认值为0
+-hls_wrap n:设置多少片之后开始覆盖，如果设置为0则不会覆盖，默认值为0.
+   这个选项能够避免在磁盘上存储过多的片，而且能够限制写入磁盘的最多的片的数量
+
+生成m3u8切片（2）
+ffmpeg -i input.mp4 -fflags flush_packets 
+-max_delay 2 -flags -global_header 
+-hls_time 5 -hls_list_size 0 -vcodec libx264 -acodec aac -r 30 -g 60 index.m3u8
+
+指定码率转换
+ffmpeg -i input.mp4 -b:v 10M -b:a 10M -c:v libx264 -c:v aac out.mp4
+备注：切记一点，命令行中涉及编解码时，-c:v copy 不要使用，否则 比如指定的码率参数，分辨率参数
+等就会失效，而且很难找到原因
+  -b:v 10M 指定视频重新编码的码率为10M/s
+  -b:a 10M 指定音频重新编码的码率为10M/s
+
+
+指定时间段录制
+ffmpeg -i input.mp4 -c:v copy -c:a copy -ss 00:10:20 -to 00:30:20 out.mp4
+
+指定录制时长
+ffmpeg -i input.mp4 -c:v copy -c:a copy -t 30 out.mp4
+备注: -t 30 表示指定30秒的录制时长
+
+提取h264 裸码流
+ffmpeg -i input.mp4 -c:v copy -bsf:v h264_mp4toannexb -an out.h264
+
+播放h264 裸码流
+ffplay -stats -f h264 out.h264
+ffplay -i out.h264
+
+提取aac 裸码流
+ffmpeg -i input.mp4 -acodec copy -vn out.aac
+备注：-vn (disable video)
+
+播放aac 裸码流
+ffplay -i out.aac
+
+视频倒放，音频不变
+ffmpeg -i input.mp4 -vf reverse input_video_reversed.mp4
+
+音频倒放，视频不变
+ffmpeg -i input.mp4 -map 0 -c:v copy -af  "areverse" input_audio_reversed.mp4
+
+视频音频同时倒放
+ffmpeg -i input.mp4 -vf reverse -af areverse   input_reversed.mp4
+
+
+提取h264 裸码流（指定编码质量）
+ffmpeg -i input.mp4 -an -c:v libx264 -crf 18 out.h264
+
+备注： -an （disable audio） 
+      -c:v libx264(等价于 -vcodec h264 或 -vcodec libx264) 
+      -crf 18 (固定质量值18)
+
+转码->AVC（指定转码的部分参数）
+ffmpeg -i input.mp4 -c:v libx264 -preset slow -tune film -profile:v main out.mp4
+备注：-tune film (主要配合视频类型和视觉优化的参数) 
+     -preset slow 
+         编码预设，主要调节 编码速度和质量的平衡
+         10个选项如下 从快到慢：ultrafast、superfast、veryfast、faster、fast、medium、slow、slower、veryslow、placebo
+     -profile:v main 
+         h264有四种画质级别,分别是baseline, extended, main, high：
+         1、Baseline Profile：基本画质。支持I/P 帧，只支持无交错（Progressive）和CAVLC；
+         2、Extended profile：进阶画质。支持I/P/B/SP/SI 帧，只支持无交错（Progressive）和CAVLC；(用的少)
+         3、Main profile：主流画质。提供I/P/B 帧，支持无交错（Progressive）和交错（Interlaced）， 也支持CAVLC 和CABAC 的支持；
+         4、High profile：高级画质。在main Profile 的基础上增加了8x8内部预测、自定义量化、 无损视频编码和更多的YUV 格式；
+
+转码->HEVC 
+ffmpeg -i input.mp4 -c:v libx265 -c:a copy out.mp4
+
+转码->AVC（指定转码的部分参数）
+ffmpeg -i input.mp4 -c:v libx264 -b:v 2048k -vf scale=1280:-1 -y out.mp4
+备注：-vf scale=1280:-1 (指定输出视频的宽高，高-1代表按照比例自动适应)
+     -b:v 2048k（指定输出视频的码率，即输出视频每秒的bit数）
+
+
+查看当前支持的编码器
+ffmpeg -codecs
+查看当前支持的封装格式
+ffmpeg -formats
+查看当前支持的滤镜
+ffmpeg -filters
+
+使用指定解码器播放视频
+ffplay -vcodec h264 -i out.mp4
+
+查看指定解码器的相关参数
+ffmpeg -h decoder=h264_cuvid
+
+查看当前支持的硬件加速选项
+ffmpeg -hwaccels
+例如：mac核显支持的选项（videotoolbox）英伟达显卡支持的选项（cuvid）
+
+使用cuvid进行解码和编码实现转码
+ffmpeg -c:v h264_cuvid -i input.mp4 -c:v h264_nvenc -b:v 2048k -vf scale=1280:-1 -y out.mp4
+备注: -hwaccel cuvid (指定使用cuvid硬件加速)
+     -c:v h264_cuvid (使用h264_cuvid进行视频解码)
+     -c:v h264_nvenc (使用h264_nvenc进行视频编码)
+     -b:v 2048k (指定输出视频的码率，即输出视频每秒的bit数)
+     -vf scale=1280:-1 (指定输出视频的宽高，高-1代表按照比例自动适应)
+
+使用videotoolbox进行编码实现转码
+ffmpeg -i input.mp4 -vcodec h264_videotoolbox -b:v 2048k -vf scale=1280:-1 -y  out.mp4
+备注：-vcodec h264_videotoolbox (使用h264_videotoolbox 进行视频编码)
+     -b:v 2048k (指定输出视频的码率，即输出视频每秒的bit数)
+     -vf scale=1280:-1 (指定输出视频的宽高，高-1代表按照比例自动适应)
+```
+
+
+
+## 第2节 实现一个传输h264的RTSP服务器
+
+主要内容：实现一个基于UDP的RTP传输h264的RTSP服务器，并能够拉流播放。
+
+​    上期视频，已经实现了一个RTSP协议交互的案例，客户端播放器能够向我们的RTSP服务器发起连接建立的请求，并且客户端在发起RTSP的Play请求以后，RTSP服务端也已经回复了Play请求的确认。
+
+​    本期视频，主要实现客户端建立与RTSP服务器的连接后，并且RTSP服务端回复了客户端的Play请求以后，服务端需要源源不断的读取一个本地h264视频文件，并将读取到的h264视频流封装到RTP数据包中，再推送至客户端，这样我们就实现了一个简单的支持RTSP协议流媒体分发服务。
+
+### RTP简介及如何将H264封装到RTP数据包
+
+参考资料：
+
+RTP理解：[RTP理解_屁小猪的博客-CSDN博客_rtp](https://blog.csdn.net/xt18971492243/article/details/123349467)
+
+H264理解：[H264简介_屁小猪的博客-CSDN博客_h264](https://blog.csdn.net/xt18971492243/article/details/123360569)
+
+H264基础知识：[H264基础知识入门_音视频开发老马的博客-CSDN博客_h264 压缩比](https://blog.csdn.net/yinshipin007/article/details/128008753?ops_request_misc={"request_id"%3A"167041712016800215015904"%2C"scm"%3A"20140713.130102334.."}&request_id=167041712016800215015904&biz_id=0&utm_medium=distribute.pc_search_result.none-task-blog-2~all~sobaiduend~default-2-128008753-null-null.142^v68^control,201^v4^add_ask,213^v2^t3_control2&utm_term=h264入门&spm=1018.2226.3001.4187)
+
+#### RTP简介
+
+RTP: 实时传输协议（Real-time Transport Protocol或简写RTP）是一个网络传输协议.
+RTP定义了两种报文：RTP报文和RTCP报文，RTP报文用于传送媒体数据（如音频和视频），它由 RTP报头和数据两部分组成，RTP数据部分称为有效载荷(payload)；RTCP报文用于传送控制信息，以实现协议控制功能。RTP报文和RTCP 报文将作为下层协议的数据单元进行传输。如果使用UDP，则RTP报文和RTCP报文分别使用两个相邻的UDP端口，RTP报文使用低端口，RTCP报文使用高端口。如果使用TCP协议，RTP报文和RTCP报文可以合并，放在一个数据单元中一起传送，控制信息在前，媒体数据在后。通常，RTP是由应用程序实现的。
+
+![image-20230608214635766](从零编写一个RTSP服务器.assets/image-20230608214635766.png)
+
+> 也可以将RTP归为应用层的一部分
+
+#### RTP报文格式
+
+![image-20230608214846809](从零编写一个RTSP服务器.assets/image-20230608214846809.png)
+
+RTP报文由两部分组成：报头和有效载荷。
+
+RTP报头格式其中：
+
+```txt
+V：RTP协议的版本号，占2位，当前协议版本号为2。
+P：填充标志，占1位，如果P=1，则在该报文的尾部填充一个或多个额外的八位组，它们不是有效载荷的一部分。
+X：扩展标志，占1位，如果X=1，则在RTP报头后跟有一个扩展报头。
+CC：CSRC计数器，占4位，指示CSRC 标识符的个数。
+M: 标记，占1位，不同的有效载荷有不同的含义，对于视频，标记一帧的结束；对于音频，标记会话的开始。
+
+PT: 有效载荷类型，占7位，用于说明RTP报文中有效载荷的类型，如GSM音频、JPEM图像等。
+序列号：占16位，用于标识发送者所发送的RTP报文的序列号，每发送一个报文，序列号增1。接收者通过序列号来检测报文丢失情况，重新排序报文，恢复数据。
+时戳(Timestamp)：占32位，时戳反映了该RTP报文的第一个八位组的采样时刻。接收者使用时戳来计算延迟和延迟抖动，并进行同步控制。
+
+同步信源(SSRC)标识符：占32位，用于标识同步信源。该标识符是随机选择的，参加同一视频会议的两个同步信源不能有相同的SSRC。
+特约信源(CSRC)标识符：每个CSRC标识符占32位，可以有0～15个。每个CSRC标识了包含在该RTP报文有效载荷中的所有特约信源。
+```
+
+RTP头结构体：
+
+```c++
+struct RtpHeader
+{
+    /* byte 0 */
+    uint8_t csrcLen : 4;//CSRC计数器，占4位，指示CSRC 标识符的个数。
+    uint8_t extension : 1;//占1位，如果X=1，则在RTP报头后跟有一个扩展报头。
+    uint8_t padding : 1;//填充标志，占1位，如果P=1，则在该报文的尾部填充一个或多个额外的八位组，它们不是有效载荷的一部分。
+    uint8_t version : 2;//RTP协议的版本号，占2位，当前协议版本号为2。
+
+    /* byte 1 */
+    uint8_t payloadType : 7;//有效载荷类型，占7位，用于说明RTP报文中有效载荷的类型，如GSM音频、JPEM图像等。
+    uint8_t marker : 1;//标记，占1位，不同的有效载荷有不同的含义，对于视频，标记一帧的结束；对于音频，标记会话的开始。
+
+    /* bytes 2,3 */
+    uint16_t seq;//占16位，用于标识发送者所发送的RTP报文的序列号，每发送一个报文，序列号增1。接收者通过序列号来检测报文丢失情况，重新排序报文，恢复数据。
+
+    /* bytes 4-7 */
+    uint32_t timestamp;//占32位，时戳反映了该RTP报文的第一个八位组的采样时刻。接收者使用时戳来计算延迟和延迟抖动，并进行同步控制。
+
+    /* bytes 8-11 */
+    uint32_t ssrc;//占32位，用于标识同步信源。该标识符是随机选择的，参加同一视频会议的两个同步信源不能有相同的SSRC。
+
+   /*标准的RTP Header 还可能存在 0-15个特约信源(CSRC)标识符
+   
+   每个CSRC标识符占32位，可以有0～15个。每个CSRC标识了包含在该RTP报文有效载荷中的所有特约信源
+
+   */
+};
+```
+
+#### H264简介
+
+**一、H264压缩技术主要采用了以下几种方法对视频数据进行压缩**
+
+* 帧内预测压缩，解决的是空域数据冗余问题。
+* 帧间预测压缩（运动估计与补偿），解决的是时域数据冗徐问题。
+* 整数离散余弦变换（DCT），将空间上的相关性变为频域上无关的数据然后进行量化。
+* CABAC压缩。
+
+经过压缩后的帧分为：I帧，P帧和B帧:
+
+* I帧：关键帧，采用帧内压缩技术。
+* P帧：向前参考帧，在压缩时，只参考前面已经处理的帧。采用帧间压缩技术。
+* B帧：双向参考帧，在压缩时，它即参考前而的帧，又参考它后面的帧。采用帧间压缩技术。
+
+除了I/P/B帧外，还有图像序列GOP。
+**二、h264组成**
+
+1、网络提取层 (Network Abstraction Layer，NAL)
+2、视讯编码层 (Video Coding Layer，VCL)
+
+**三、码流结构**
+
+H.264的功能分为两层，视频编码层（VCL）和网络提取层（NAL）。
+1.VCL数据即被压缩编码后的视频数据序列。
+2.在VCL数据要封装到NAL单元中之后，才可以用来传输或存储
+
+![image-20230608224328068](从零编写一个RTSP服务器.assets/image-20230608224328068.png)
+
+
+
+SPS：序列参数集，作用于一系列连续的编码图像；
+PPS：图像参数集，作用于编码视频序列中一个或多个独立的图像；
+
+NALU根据`nal_unit_type`的类型，可以分为：VCL的NAL单元和非VCL的NAL单元
 
 
 ## 其他
