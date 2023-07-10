@@ -793,7 +793,7 @@ struct AdtsHeader {
 //ffmpeg命令行 从mp4视频文件提取aac 音频文件
 ffmpeg -i test.mp4  -vn -acodec aac test.aac
 备注：-i 表示输入文件 
-      -vm disable video / 丢掉视频
+      -vn disable video / 丢掉视频
       -acodec 设置音频编码格式
 
 //ffmpeg 从aac音频文件解码为pcm音频文件
@@ -814,8 +814,8 @@ ffplay -ar 44100 -ac 2 -f s16le -i test.pcm
 参考：RTSP协议的一些分析（六）——使用RTP传输AAC文件  https://blog.csdn.net/yangguoyu8023/article/details/106517251/
 
 AAC的RTP打包方式并没有向H.264那样丰富，我知道的只有一种方式，原因主要是AAC一帧数据大小都是几百个字节，不会向H.264那么少则几个字节，多则几千。
-        AAC的RTP打包方式就是将ADTS帧取出ADTS头部，取出AAC数据，每帧数据封装成一个RTP包
-        需要注意的是，并不是将AAC数据直接拷贝到RTP的载荷中。AAC封装成RTP包，在RTP载荷中的前四个字节是有特殊含义的，然后再是AAC数据，如下图所示
+AAC的RTP打包方式就是将ADTS帧取出ADTS头部，取出AAC数据，每帧数据封装成一个RTP包
+需要注意的是，并不是将AAC数据直接拷贝到RTP的载荷中。AAC封装成RTP包，在RTP载荷中的前四个字节是有特殊含义的，然后再是AAC数据，如下图所示
 ![image-20230613233314243](从零编写一个RTSP服务器.assets/image-20230613233314243.png)
 
 其中RTP载荷的一个字节为0x00，第二个字节为0x10。第三个字节和第四个字节保存AAC Data的大小，最多只能保存13bit，第三个字节保存数据大小的高八位，第四个字节的高5位保存数据大小的低5位。
@@ -975,4 +975,10 @@ int main() {
 Name: John
 Age: 25
 ```
+
+
+
+
+
+
 
