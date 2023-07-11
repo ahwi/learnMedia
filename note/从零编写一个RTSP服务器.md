@@ -809,6 +809,8 @@ ffplay -ar 44100 -ac 2 -f s16le -i test.pcm
       -ac 表示播放的音频数据的通道数
 ```
 
+> 默认情况下，FFmpeg生成的AAC音频文件是ADTS格式。这是因为ADTS格式是一种常见的AAC音频封装格式，它包含有音频帧同步信息和一些其他的元数据，比ADIF格式更为完整。
+
 #### AAC的RTP打包
 
 参考：RTSP协议的一些分析（六）——使用RTP传输AAC文件  https://blog.csdn.net/yangguoyu8023/article/details/106517251/
@@ -830,6 +832,36 @@ rtpPacket->payload[3] = (frameSize & 0x1F) << 3; //低5位
 实验：实现一个aac的RTSP服务器
 
 代码：`study3`
+
+## 第4讲 实现一个基于TCP的RTP同时传输h264的aac的RTSP服务器
+
+本节内容：实现一个基于TCP的RTP同时传输h264和aac的RTSP服务器，并能够拉流播放
+
+> 本系列的前三期视频，我们已经了解和实现了RTSP协议，以及实现了基于UDP的RTP分别传输h264视频流和aac音频流。
+
+在前三期视频的学习基础上，本期其实比较简单，相对于之前实现的功能，变化如下:
+
+1. 客户端请求RTSP的Describe请求时，RTSP服务器返回的SDP协议，需要同时包含音频流和视频流的信息。
+
+2. 客户端请求RTSP的Setup请求时，RTSP服务器不需要再对应创建RTP和RTCP的UDP连接通道，因为TCP版的RTP传输，客户端与服务器交互时，无论是RTSP信令还是RTP数据包或者是RTCP数据包，都是使用同一个tcp连接通道。只不过这个tcp连接通道在发送rtp数据包或者rtcp数据包时，需要加一些分隔字节。
+
+3. 客户端请求RTSP的Play请求时，RTSP服务器在对Play请求回复以后，还需要源源不断的同时向客户端发送音频流和视频流的RTP数据包。
+
+4. 有几点注意，在这个案例项目中，使用的h264视频文件，对应的fps需要是25。另外由于Nalu的数量并不等于视频帧数量的原因，该案例的音视频并不能同步。
+
+```txt
+//ffmpeg命令行 从mp4视频文件提取h264 码流文件
+ffmpeg -i test.mp4 -an -vcodec copy -f h264 test.h264
+
+//ffmpeg命令行 从mp4视频文件提取aac 音频文件
+ffmpeg -i test.mp4  -vn -acodec aac test.aac
+备注：-i 表示输入文件 
+      -vn disable video / 丢掉视频
+```
+
+
+
+
 
 
 ## 其他
