@@ -4,8 +4,9 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
+#define SERVER_PORT 7899
 
-SOCKET CreateSocket() 
+SOCKET createTcpSocket() 
 {
 	SOCKET sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd <= 0) {
@@ -20,7 +21,7 @@ SOCKET CreateSocket()
 	return sockfd;
 }
 
-int Bind(SOCKET sock, const char *ip, const int& port)
+int bindSocketAddr(SOCKET sock, const char *ip, const int& port)
 {
 	struct sockaddr_in  addr;
 
@@ -34,16 +35,18 @@ int Bind(SOCKET sock, const char *ip, const int& port)
 	return 0;
 }
 
-SOCKET AcceptSocket(SOCKET serverSock) 
+SOCKET acceptClient(SOCKET serverSock, char *ip, int *port) 
 {
-	sockaddr clientAddr;
+	sockaddr_in clientAddr;
 	memset(&clientAddr, 0, sizeof(clientAddr));
 	int len = sizeof(clientAddr);
 
-	SOCKET clientfd = accept(serverSock, &clientAddr, &len);
+	SOCKET clientfd = accept(serverSock, (struct sockaddr *) &clientAddr, &len);
 	if (clientfd < 0) {
 		return -1;
 	}
+	strcpy(ip,inet_ntoa(clientAddr.sin_addr));
+	*port = ntohs(clientAddr.sin_port);
 
 	return clientfd;
 }
@@ -58,7 +61,7 @@ int main(int argc, char *argv[])
 	}
 
 	// 1. 创建socket
-	SOCKET sockfd = CreateSocket();
+	SOCKET sockfd = createTcpSocket();
 	if (sockfd < 0) {
 		WSACleanup();
 		printf("create server socket error!\n");
@@ -66,8 +69,7 @@ int main(int argc, char *argv[])
 	}
 
 	// 2. 绑定socket
-	int port = 27015;
-	if (Bind(sockfd, "0.0.0.0", port)) {
+	if (bindSocketAddr(sockfd, "0.0.0.0", SERVER_PORT)) {
 		WSACleanup();
 		printf("bind socket error!\n");
 		return -1;
@@ -81,15 +83,22 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	// 4. 接受socket
-	SOCKET clientSock = AcceptSocket(sockfd);
-	if (clientSock < 0 ) {
-		WSACleanup();
-		printf("accept socket error!\n");
-		return -1;
+	printf("%s rtsp://127.0.0.1:%d\n", __FILE__, SERVER_PORT);
+
+	while (true) {
+		// 4. 接受socket
+		char clientIp[40];
+		int clientPort;
+		SOCKET clientSock = acceptClient(sockfd, clientIp, &clientPort);
+		if (clientSock < 0 ) {
+			WSACleanup();
+			printf("accept socket error!\n");
+			return -1;
+		}
+		printf("accpet client:%s %d\n", clientIp, clientPort);
+	
 	}
 	
-
 	WSACleanup(); // 关闭 Winsock 库
 	return 0;
 }
