@@ -25,7 +25,7 @@ public:
 	}
 
 	int start() {
-		*th = new thread([](Connection* conn) {
+		th = new std::thread([](Connection* conn) {
 			int size = 0;
 			uint64_t totalSize = 0;
 			char buf[1024];
@@ -33,9 +33,9 @@ public:
 			time_t t1 = time(NULL);
 			while (true)
 			{
-				size = send(conn->clientFd, buf, sizeof(buf));
+				size = send(conn->clientFd, buf, sizeof(buf), 0);
 				if (size < 0) {
-					LOGE("clientFd=%d,send error, ´íÎóÂë:%d", clientFd, WSAGetLastError());
+					LOGE("clientFd=%d,send error, ´íÎóÂë:%d\n", conn->clientFd, WSAGetLastError());
 					// TODO: close connection
 					break;
 				}
@@ -59,7 +59,7 @@ public:
 private:
 	Server *m_server;
 	int clientFd;
-	thread *th;
+	std::thread *th;
 
 };
 
