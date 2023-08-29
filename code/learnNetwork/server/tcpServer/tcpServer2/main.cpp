@@ -4,6 +4,7 @@
 #include <iostream>
 #include <mutex>
 #include <thread>
+#include <map>
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -17,11 +18,30 @@ class Connection {
 
 public:
 	Connection(Server *server, int clientFd) 
-		:m_server(server), clientFd(clientFd) {
+		:m_server(server), m_clientFd(clientFd) {
+		LOGI("");
 	}
 
 	~Connection() {
-	
+		LOGI("");
+		closesocket(m_clientFd);
+		if (th) {
+			th->join();
+			delete th;
+			th = nullptr;
+		}
+	}
+
+public:
+	typedef void (*DisconnectionCallback)(void* , int );
+
+	int getClientFd(){
+		return m_clientFd;
+	}
+
+	void setDisconntionCallback(DisconnectionCallback cb, void *arg) {
+		m_disconnectionCallback = cb;
+		m_arg = arg;
 	}
 
 	int start() {
@@ -33,10 +53,11 @@ public:
 			time_t t1 = time(NULL);
 			while (true)
 			{
-				size = send(conn->clientFd, buf, sizeof(buf), 0);
+				size = send(conn->m_clientFd, buf, sizeof(buf), 0);
 				if (size < 0) {
-					LOGE("clientFd=%d,send error, ´íÎóÂë:%d\n", conn->clientFd, WSAGetLastError());
+					LOGE("clientFd=%d,send error, ´íÎóÂë:%d\n", conn->m_clientFd, WSAGetLastError());
 					// TODO: close connection
+					conn->m_disconnectionCallback(conn->m_arg, conn->m_clientFd);
 					break;
 				}
 				totalSize += size;
@@ -46,7 +67,7 @@ public:
 					if (t2 - t1 > 0) {
 						uint64_t speed = totalSize / 1024 / 1024 / (t2 - t1);
 						LOGI("clientFd=%d,size=%d,totalSize=%llu,speed=%llu",
-							conn->clientFd, size, totalSize, speed);
+							conn->m_clientFd, size, totalSize, speed);
 						totalSize = 0;
 						t1 = time(NULL);
 					}
@@ -58,8 +79,10 @@ public:
 
 private:
 	Server *m_server;
-	int clientFd;
+	int m_clientFd;
 	std::thread *th;
+	DisconnectionCallback m_disconnectionCallback = nullptr;
+	void* m_arg = nullptr;
 
 };
 
@@ -83,7 +106,7 @@ public:
 		}
 		sockaddr_in serverAddr;
 		serverAddr.sin_addr.s_addr = inet_addr(serverIp);
-		if (bind(serverFd, (const struct sockaddr *)serverAddr, sizeof(struct sockaddr))) {
+		if (bind(serverFd, (const struct sockaddr *)&serverAddr, sizeof(struct sockaddr))) {
 			LOGE("bind socket error");
 			return -1;
 		}
@@ -99,22 +122,76 @@ public:
 			int clientFd = accept(serverFd, (sockaddr *)&serverAddr, &len);
 			if (clientFd < 0) {
 				LOGE("accept error");
-				return;
+				return -1;
 			}
 
 			Connection conn(this, clientFd);
+			this->addConnection(&conn);
+			conn.setDisconntionCallback(Server::cbDisconnection, this);
 			conn.start();
-
-		
 		}
-
-		
-	
 	}
+
+	void handleDisconnection(int clientFd) {
+		LOGI("clientFd=%d", clientFd);
+		removeConnection(clientFd);
+	}
+
+	static void cbDisconnection(void *args, int clientFd) {
+		LOGI("clientFd=%d", clientFd);
+		Server *server = (Server *)args;
+		server->handleDisconnection(clientFd);
+	}
+
+private:
+	bool addConnection(Connection* conn) {
+		m_connMapMtx.lock();
+
+		if (m_connMap.find(conn->getClientFd()) != m_connMap.end()) {
+			m_connMapMtx.unlock();
+			return false;
+		}
+		else {
+			m_connMap.insert(std::make_pair(conn->getClientFd(), conn));
+			m_connMapMtx.unlock();
+			return true;
+		}
+	}
+
+	Connection* getConnection(int clientFd) {
+		m_connMapMtx.lock();
+
+		std::map<int, Connection*>::iterator it = m_connMap.find(clientFd);
+		if (it != m_connMap.end()) {
+			m_connMapMtx.unlock();
+			return it->second;
+		}
+		else {
+			m_connMapMtx.unlock();
+			return nullptr;
+		}
+	}
+
+	bool removeConnection(int clientFd) {
+		m_connMapMtx.lock();
+
+		auto it = m_connMap.find(clientFd);
+		if (it != m_connMap.end()) {
+			m_connMapMtx.unlock();
+			m_connMap.erase(it);
+			return true;
+		}
+		else {
+			return false;
+		}
+	}
+
 
 private:
 	char *serverIp = nullptr;
 	int port = 0;
+	std::map<int, Connection*> m_connMap;
+	std::mutex m_connMapMtx;
 
 };
 
