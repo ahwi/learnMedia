@@ -762,13 +762,15 @@ AAC音频格式有2种：
 
 参考文章 ：C++ 解析aac-adts的头部信息 `https://blog.csdn.net/u013113678/article/details/123134860`
 
+adts的头部一共有15个字段，共7bytes，如果有校验位则会在尾部增加2bytes的CRC校验，具体如下：
+
 ```c++
 struct AdtsHeader {
     unsigned int syncword;  //12 bit 同步字 '1111 1111 1111'，一个ADTS帧的开始
     uint8_t id;        //1 bit 0代表MPEG-4, 1代表MPEG-2。
     uint8_t layer;     //2 bit 必须为0
     uint8_t protectionAbsent;  //1 bit 1代表没有CRC，0代表有CRC
-    uint8_t profile;           //1 bit AAC级别（MPEG-2 AAC中定义了3种profile，MPEG-4 AAC中定义了6种profile）
+    uint8_t profile;           //2 bit AAC级别（MPEG-2 AAC中定义了3种profile，MPEG-4 AAC中定义了6种profile）
     uint8_t samplingFreqIndex; //4 bit 采样率
     uint8_t privateBit;        //1bit 编码时设置为0，解码时忽略
     uint8_t channelCfg;        //3 bit 声道数量
