@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tcpServer1", "tcpServer1\tc
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tcpServer2", "tcpServer2\tcpServer2.vcxproj", "{7142E29C-93E2-4358-BCB3-B05DFEA03375}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tcpServerSelect", "tcpServerSelect\tcpServerSelect.vcxproj", "{4EAD8391-C968-492E-944A-B90F65695332}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -31,6 +33,14 @@ Global
 		{7142E29C-93E2-4358-BCB3-B05DFEA03375}.Release|x64.Build.0 = Release|x64
 		{7142E29C-93E2-4358-BCB3-B05DFEA03375}.Release|x86.ActiveCfg = Release|Win32
 		{7142E29C-93E2-4358-BCB3-B05DFEA03375}.Release|x86.Build.0 = Release|Win32
+		{4EAD8391-C968-492E-944A-B90F65695332}.Debug|x64.ActiveCfg = Debug|x64
+		{4EAD8391-C968-492E-944A-B90F65695332}.Debug|x64.Build.0 = Debug|x64
+		{4EAD8391-C968-492E-944A-B90F65695332}.Debug|x86.ActiveCfg = Debug|Win32
+		{4EAD8391-C968-492E-944A-B90F65695332}.Debug|x86.Build.0 = Debug|Win32
+		{4EAD8391-C968-492E-944A-B90F65695332}.Release|x64.ActiveCfg = Release|x64
+		{4EAD8391-C968-492E-944A-B90F65695332}.Release|x64.Build.0 = Release|x64
+		{4EAD8391-C968-492E-944A-B90F65695332}.Release|x86.ActiveCfg = Release|Win32
+		{4EAD8391-C968-492E-944A-B90F65695332}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
