@@ -865,6 +865,166 @@ ffmpeg -i test.mp4  -vn -acodec aac test.aac
 
 
 
+## 可选：音视频并发测试工具，C++开发的流媒体服务器并发测试工具，可以用来测试流媒体服务器的并发性能
+
+### 1. 流媒体并发测试工具 `BXC_mstest`
+
+> 开源地址：`https://gitee.com/Vanishi/BXC_mstest`
+
+#### 1.1 介绍
+
+1. 基于C++开发的流媒体并发测试工具，可以测试流媒体并发性能，也可以测试电脑或服务器等设备能够支持的最大解码并发数
+2. 支持Windows/Linux
+3. 该工具的核心就是借助ffmpeg进行拉流，一旦拉流失败就并发数下降
+
+#### 1.2 编译说明
+
+1. 推荐使用visual studio 2019
+2. 使用visual studio 2019 打开 BXC_mstest.sln，设置成x64/Release模式，依赖库已经配置，可以直接运行，如果提示缺少dll，请从3rdparty找到dll拷贝到程序执行目录
+
+#### 1.3 使用说明
+
+```txt
+首先，打开一个cmd窗口，在cmd窗口中输入 mstest.exe -h 查看参数
+
+-h 查看帮助文档
+-t 测试类型 （0:拉流 1:拉流+解码）如：-t 0
+-c 测试并发数   如：-c 2
+-i 视频流地址（也可以是本地视频文件路径）  如：-i rtsp://127.0.0.1:554/live/test
+-v 视频流解码器  如：h264,h264_qsv,h264_cuvid,hevc,hevc_qsv,hevc_cuvid
+-r rtsp拉流时传输层协议(udp或tcp)  如：-r udp
+-s 记录日志的间隔时间，休眠单位为毫秒  如：-s 1000
+```
+
+
+
+### 2. 准备流媒体服务器
+
+测试`BXC_mstest`需要流媒体服务器，推荐使用`ZLMediaKit`流媒体服务器
+
+* 开源地址：
+  * `https://gitee.com/xia-chu/ZLMediaKit`
+  * `https://github.com/ZLMediaKit/ZLMediaKit`
+* 北小菜编译好的windows版本：`https://gitee.com/Vanishi/zlm`
+
+#### 2.1 使用方法
+
+<font color=blue>1. 启动流媒体服务器</font>
+
+> 这边使用北小菜编译好的版本
+
+`V2024.9.14.windows`进到该命令，执行`start.bat`
+
+![image-20250426131547305](从零编写一个RTSP服务器.assets/image-20250426131547305.png)
+
+<font color=blue>2. 往流媒体服务器推流：</font>
+
+**流媒体服务器是没有任何流的。**
+
+**开启流媒体服务器以后，推荐使用如下几种方式为流媒体服务器推流：**
+
+* [FFmpeg推USB摄像头](https://gitee.com/link?target=https%3A%2F%2Fbeixiaocai.yuque.com%2Forg-wiki-beixiaocai-vo72oa%2Fxcms%2F0deb4194d8ad8f0ca437263dd40597c0)
+
+  * 命令：
+
+    ```txt
+    （1）查看所有插在电脑上的USB摄像头列表
+    ffmpeg -list_devices true -f dshow -i dummy
+    
+    （2）播放摄像头
+    ffplay -f dshow -i video="FULL HD webcam"
+    
+    注意："FULL HD webcam" 是通过查看USB摄像头列表的命令行获得的设备名称
+    
+    （3）查看摄像头的分辨率格式
+    ffmpeg -list_options true -f dshow -i video="FULL HD webcam"
+    
+    （4）将USB摄像头推流到视频行为分析系统
+    ffmpeg -f dshow -i video="FULL HD webcam" -rtsp_transport tcp -c:v h264 -pix_fmt yuv420p -r 25 -s 1920*1080 -f rtsp rtsp://127.0.0.1:9554/live/camera
+    
+    注意：
+    （1）rtsp://127.0.0.1:9554/live/camera 并不是固定的推流地址，可以按照自己的需求修改
+    ```
+
+* [FFmpeg推本地视频文件](https://gitee.com/link?target=https%3A%2F%2Fbeixiaocai.yuque.com%2Forg-wiki-beixiaocai-vo72oa%2Fxcms%2F60850e5f979a8cddc42d5fd4e81fc70f)
+
+  * 测试视频：
+
+    * 百度网盘：https://pan.baidu.com/s/1uNx8eSttA1qCVlgfii0VtA?pwd=xcxc 
+    * 夸克网盘：https://pan.baidu.com/s/1uNx8eSttA1qCVlgfii0VtA?pwd=xcxc 
+
+  * 命令：
+
+    ```cmd
+    （1）将test.mp4循环推流至xcms(rtsp推流)
+    ffmpeg -re -stream_loop -1 -i test.mp4  -rtsp_transport tcp -c copy -f rtsp rtsp://127.0.0.1:9554/live/test
+    
+    （2）将test.mp4循环推流至xcms(转码+rtsp推流)
+    ffmpeg -re -stream_loop -1 -i test.mp4  -rtsp_transport tcp -c:v libx264 -an -f rtsp rtsp://127.0.0.1:9554/live/test
+    
+    （3）将test.mp4循环推流至xcms(rtmp推流)
+    ffmpeg -re -stream_loop -1  -i test.mp4 -c:v copy -an -f flv rtmp://192.168.1.11:9935/live/test
+    
+    （4）将test.mp4循环推流至xcms(转码+rtmp推流)
+    ffmpeg -re -stream_loop -1  -i test.mp4 -c:v libx264 -an -f flv rtmp://192.168.1.11:9935/live/test
+    
+    （5）将 "其他RTSP视频流地址" 转推至xcms(rtsp转推流)，转推前确保 "其他RTSP视频流地址" 可以正常播放，可以用vlc播放测试
+    ffmpeg -i "其他RTSP视频流地址"  -rtsp_transport tcp -c copy -f rtsp rtsp://127.0.0.1:9554/live/test
+    
+    （6）将 "其他RTSP视频流地址" 转推至xcms(转码+rtsp转推流)，转推前确保 "其他RTSP视频流地址" 可以正常播放，可以用vlc播放测试
+    ffmpeg -i "其他RTSP视频流地址"  -rtsp_transport tcp -c:v libx264 -an -f rtsp rtsp://127.0.0.1:9554/live/test
+    
+    注意：
+    （1）rtsp://127.0.0.1:9554/live/test并不是固定的推流地址，可以按照自己的需求修改
+    （2）rtmp转推rtsp流或rtsp转推rtmp流都是可以的，可以参考上面的命令行学习和扩展
+    ```
+
+* [FFmpeg电脑桌面推流](https://gitee.com/link?target=https%3A%2F%2Fbeixiaocai.yuque.com%2Forg-wiki-beixiaocai-vo72oa%2Fxcms%2F00a95632b189aa5a4e5e6e4ffb2bbd40)
+
+  * 命令：
+
+    ```cmd
+    （1）实时采集Windows桌面并推流至xcms（rtsp推流）
+    ffmpeg -f gdigrab -i desktop -vcodec libx264 -preset ultrafast -acodec libmp3lame -ar 44100 -ac 1 -r 25 -f rtsp rtsp://127.0.0.1:9554/live/desktop
+    
+    注意：
+    （1）rtsp://127.0.0.1:9554/live/desktop并不是固定的推流地址，可以按照自己的需求修改
+    ```
+
+补充说明： 
+
+* ffmpeg命令行的下载链接：https://pan.quark.cn/s/bc3a69677a8f 提取码：SBCp
+
+* 注意事项：
+  * 通过ffmpeg命令行进行视频推流，视频编码推流，视频转推流等延迟是无法避免的
+
+  * 解决ffmpeg延迟问题，可以参考视频：
+
+    [C++/FFmpeg开发零延迟的摄像头拉流转码推流器_哔哩哔哩_ bilibili](https://www.bilibili.com/video/BV1RN411K75R/?spm_id_from=333.788&vd_source=f70a17c45cd3d279ce923ca59e12fff0)
+
+**这边使用FFmpeg 推本地视频文件**
+
+```cmd
+ffmpeg -re -stream_loop -1 -i test.mp4  -rtsp_transport tcp -c copy -f rtsp rtsp://127.0.0.1:554/live/test
+```
+
+流媒体服务器的输出日志：
+
+![image-20250426131706924](从零编写一个RTSP服务器.assets/image-20250426131706924.png)
+
+可以看到，执行完推流命令后，有一路`live/test`流，这路流过来以后就被分发成 rtsp/fmp4/rtmp/hls等协议的相关流
+
+### 3. 启动测试工具`BXC_mstest`
+
+编译出来到debug目录并执行
+
+```cmd
+.\mstest.exe -c 5 -i rtsp://127.0.0.1:554/live/test -r udp
+```
+
+> 执行过程中可能缺少库，在`3rdparty`中进行拷贝
+
+
 
 
 
