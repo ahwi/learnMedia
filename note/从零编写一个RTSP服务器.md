@@ -1176,5 +1176,102 @@ Age: 25
 
 
 
+## 测试
 
+### 1. vlc播放本地usb摄像头
 
+使用zlm作为流媒体服务器，电脑连接usb摄像头，并使用ffmpeg命令推流到流媒体服务器，从流媒体服务器拉流并播放
+
+具体步骤：
+
+#### 1. 打开zlm流媒体服务器
+
+![image-20250428214536929](从零编写一个RTSP服务器.assets/image-20250428214536929.png)
+
+#### 2. ffmpeg推流usb摄像头
+
+* 1）查看所有插在电脑上的USB摄像头列表
+
+  ```cmd
+  ffmpeg -list_devices true -f dshow -i dummy
+  ```
+
+  输出：
+
+  ```cmd
+  λ ffmpeg -list_devices true -f dshow -i dummy
+  ffmpeg version N-110645-gd4c48ee7f3-20230517 Copyright (c) 2000-2023 the FFmpeg developers
+    built with gcc 12.2.0 (crosstool-NG 1.25.0.152_89671bf)
+    configuration: --prefix=/ffbuild/prefix --pkg-config-flags=--static --pkg-config=pkg-config --cross-prefix=x86_64-w64-mingw32- --arch=x86_64 --target-os=mingw32 --enable-gpl --enable-version3 --disable-debug --disable-w32threads --enable-pthreads --enable-iconv --enable-libxml2 --enable-zlib --enable-libfreetype --enable-libfribidi --enable-gmp --enable-lzma --enable-fontconfig --enable-libvorbis --enable-opencl --disable-libpulse --enable-libvmaf --disable-libxcb --disable-xlib --enable-amf --enable-libaom --enable-libaribb24 --enable-avisynth --enable-chromaprint --enable-libdav1d --enable-libdavs2 --disable-libfdk-aac --enable-ffnvcodec --enable-cuda-llvm --enable-frei0r --enable-libgme --enable-libkvazaar --enable-libass --enable-libbluray --enable-libjxl --enable-libmp3lame --enable-libopus --enable-librist --enable-libssh --enable-libtheora --enable-libvpx --enable-libwebp --enable-lv2 --disable-libmfx --enable-libvpl --enable-openal --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenh264 --enable-libopenjpeg --enable-libopenmpt --enable-librav1e --enable-librubberband --enable-schannel --enable-sdl2 --enable-libsoxr --enable-libsrt --enable-libsvtav1 --enable-libtwolame --enable-libuavs3d --disable-libdrm --disable-vaapi --enable-libvidstab --enable-vulkan --enable-libshaderc --enable-libplacebo --enable-libx264 --enable-libx265 --enable-libxavs2 --enable-libxvid --enable-libzimg --enable-libzvbi --extra-cflags=-DLIBTWOLAME_STATIC --extra-cxxflags= --extra-ldflags=-pthread --extra-ldexeflags= --extra-libs=-lgomp --extra-version=20230517
+    libavutil      58.  7.100 / 58.  7.100
+    libavcodec     60. 14.100 / 60. 14.100
+    libavformat    60.  5.100 / 60.  5.100
+    libavdevice    60.  2.100 / 60.  2.100
+    libavfilter     9.  8.100 /  9.  8.100
+    libswscale      7.  2.100 /  7.  2.100
+    libswresample   4. 11.100 /  4. 11.100
+    libpostproc    57.  2.100 / 57.  2.100
+  [dshow @ 0000026e039cad80] "USB Web Camera" (video)
+  [dshow @ 0000026e039cad80]   Alternative name "@device_pnp_\\?\usb#vid_1c4f&pid_3000&mi_00#7&2f6cd551&0&0000#{65e8773d-8f56-11d0-a3b9-00a0c9223196}\global"
+  [dshow @ 0000026e039cad80] Could not enumerate audio only devices (or none found).
+  [in#0 @ 0000026e039cabc0] Error opening input: Immediate exit requested
+  ```
+
+* 2）ffplay播放摄像头（用于测试）
+
+  ```cmd
+  ffplay -f dshow -i video="USB Web Camera"
+  ```
+
+  可以看到可以播放摄像头画面
+
+* 3）查看摄像头的分辨率格式
+
+  ```cmd
+  ffmpeg -list_options true -f dshow -i video="USB Web Camera"
+  ```
+
+  输出：
+
+  ```cmd
+  λ ffmpeg -list_options true -f dshow -i video="USB Web Camera"
+  ffmpeg version N-110645-gd4c48ee7f3-20230517 Copyright (c) 2000-2023 the FFmpeg developers
+    built with gcc 12.2.0 (crosstool-NG 1.25.0.152_89671bf)
+    configuration: --prefix=/ffbuild/prefix --pkg-config-flags=--static --pkg-config=pkg-config --cross-prefix=x86_64-w64-mingw32- --arch=x86_64 --target-os=mingw32 --enable-gpl --enable-version3 --disable-debug --disable-w32threads --enable-pthreads --enable-iconv --enable-libxml2 --enable-zlib --enable-libfreetype --enable-libfribidi --enable-gmp --enable-lzma --enable-fontconfig --enable-libvorbis --enable-opencl --disable-libpulse --enable-libvmaf --disable-libxcb --disable-xlib --enable-amf --enable-libaom --enable-libaribb24 --enable-avisynth --enable-chromaprint --enable-libdav1d --enable-libdavs2 --disable-libfdk-aac --enable-ffnvcodec --enable-cuda-llvm --enable-frei0r --enable-libgme --enable-libkvazaar --enable-libass --enable-libbluray --enable-libjxl --enable-libmp3lame --enable-libopus --enable-librist --enable-libssh --enable-libtheora --enable-libvpx --enable-libwebp --enable-lv2 --disable-libmfx --enable-libvpl --enable-openal --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenh264 --enable-libopenjpeg --enable-libopenmpt --enable-librav1e --enable-librubberband --enable-schannel --enable-sdl2 --enable-libsoxr --enable-libsrt --enable-libsvtav1 --enable-libtwolame --enable-libuavs3d --disable-libdrm --disable-vaapi --enable-libvidstab --enable-vulkan --enable-libshaderc --enable-libplacebo --enable-libx264 --enable-libx265 --enable-libxavs2 --enable-libxvid --enable-libzimg --enable-libzvbi --extra-cflags=-DLIBTWOLAME_STATIC --extra-cxxflags= --extra-ldflags=-pthread --extra-ldexeflags= --extra-libs=-lgomp --extra-version=20230517
+    libavutil      58.  7.100 / 58.  7.100
+    libavcodec     60. 14.100 / 60. 14.100
+    libavformat    60.  5.100 / 60.  5.100
+    libavdevice    60.  2.100 / 60.  2.100
+    libavfilter     9.  8.100 /  9.  8.100
+    libswscale      7.  2.100 /  7.  2.100
+    libswresample   4. 11.100 /  4. 11.100
+    libpostproc    57.  2.100 / 57.  2.100
+  [dshow @ 00000225d996ad80] DirectShow video device options (from video devices)
+  [dshow @ 00000225d996ad80]  Pin "捕获" (alternative pin name "0")
+  [dshow @ 00000225d996ad80]   vcodec=mjpeg  min s=320x240 fps=15 max s=320x240 fps=30
+  [dshow @ 00000225d996ad80]   vcodec=mjpeg  min s=320x240 fps=15 max s=320x240 fps=30 (pc, bt709/bt709/unknown, center)
+  [dshow @ 00000225d996ad80]   vcodec=mjpeg  min s=640x480 fps=15 max s=640x480 fps=30
+  [dshow @ 00000225d996ad80]   vcodec=mjpeg  min s=640x480 fps=15 max s=640x480 fps=30 (pc, bt709/bt709/unknown, center)
+  [dshow @ 00000225d996ad80]   vcodec=mjpeg  min s=160x120 fps=15 max s=160x120 fps=30
+  [dshow @ 00000225d996ad80]   vcodec=mjpeg  min s=160x120 fps=15 max s=160x120 fps=30 (pc, bt709/bt709/unknown, center)
+  [in#0 @ 00000225d996abc0] Error opening input: Immediate exit requested
+  ```
+
+* 4）将USB摄像头推流到流媒体服务器
+
+  ```cmd
+  ffmpeg -f dshow -i video="USB Web Camera" -rtsp_transport tcp -c:v h264 -pix_fmt yuv420p -r 25 -s 640*480 -f rtsp rtsp://127.0.0.1:554/live/camera
+  ```
+
+#### 3. 使用vlc播放rtsp流
+
+```txt
+1. 打开vlc --> 媒体 --> 打开网络串流 --> 网络 --> 请输入网络URL 添加下面的URL
+rtsp://127.0.0.1:554/live/camera
+```
+
+![image-20250428215643098](从零编写一个RTSP服务器.assets/image-20250428215643098.png)
+
+![image-20250428215700953](从零编写一个RTSP服务器.assets/image-20250428215700953.png)
+
+就可以看到ffmepg播放摄像头画面了
