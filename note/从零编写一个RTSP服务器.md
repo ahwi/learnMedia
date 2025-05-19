@@ -1026,6 +1026,46 @@ ffmpeg -re -stream_loop -1 -i test.mp4  -rtsp_transport tcp -c copy -f rtsp rtsp
 
 
 
+# 从零开发RTSP客户端
+
+## 第1节 RTSP信令交互全过程抓包讲解以及代码实现
+
+### 1. 环境准备
+
+使用`ZLMediaKit`作为流媒体服务器，`ffmpeg`推送本地mp4数据到`ZLMediaKit`，客户端代码播放对应的媒体流（可用vlc作为客户端播放媒体流测试）。
+
+下面用vlc作为客户端播放媒体流进行测试：
+
+#### 1.1 启动`ZLMediaKit`
+
+使用北小菜编译的`ZLMediaKit`进行测试：
+
+进到编译好的程序目录，执行`./start.bat`
+
+![image-20250519221458072](从零编写一个RTSP服务器.assets/image-20250519221458072.png)
+
+#### 1.2 用`ffmepg`推送mp4数据到`ZLMediaKit`
+
+推送命令：
+
+```txt
+ffmpeg -re -stream_loop -1 -i test.mp4 -rtsp_transport tcp -c copy -f rtsp rtsp://127.0.0.1:554/live/test
+ffmpeg -re -stream_loop -1 -i test_xx2.mp4 -rtsp_transport tcp -c copy -f rtsp rtsp://127.0.0.1:554/live/test2
+ffmpeg -re -stream_loop -1 -i test_xx3.mp4 -rtsp_transport tcp -c copy -f rtsp rtsp://127.0.0.1:554/live/test3
+```
+
+这里只执行第一个命令：
+
+![image-20250519221708535](从零编写一个RTSP服务器.assets/image-20250519221708535.png)
+
+#### 1.3 使用`vlc`播放媒体流进行测试
+
+![image-20250519221802301](从零编写一个RTSP服务器.assets/image-20250519221802301.png)
+
+![image-20250519221822935](从零编写一个RTSP服务器.assets/image-20250519221822935.png)
+
+
+
 
 
 ## 其他
