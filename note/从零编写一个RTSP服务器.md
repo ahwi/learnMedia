@@ -1062,7 +1062,190 @@ ffmpeg -re -stream_loop -1 -i test_xx3.mp4 -rtsp_transport tcp -c copy -f rtsp r
 
 ![image-20250519221802301](从零编写一个RTSP服务器.assets/image-20250519221802301.png)
 
-![image-20250519221822935](从零编写一个RTSP服务器.assets/image-20250519221822935.png)
+<img src="从零编写一个RTSP服务器.assets/image-20250519221822935.png" alt="image-20250519221822935" style="zoom:50%;" />
+
+
+
+#### 1.4 客户端代码
+
+* gitee开源地址：`https://gitee.com/Vanishi/BXC_RtspClient`
+
+* github开源地址：`https://github.com/any12345com/BXC_RtspClient`
+
+### 2. 抓包分析
+
+#### 2.1 推流包
+
+在运行`ZLMediaKit`程序和用ffmpeg推送mp4流的情况下，可以抓到ffmpeg推流的包
+
+![image-20250520162757371](从零编写一个RTSP服务器.assets/image-20250520162757371.png)
+
+可以看到RTP的上一层是RTSP，RTSP的上一层是tcp。当我们用tcp传输时，rtsp、rtcp、rtp三种包全部在一个通道上进行传输。
+
+上图是截取教学视频的数据包截图，我自己抓到的数据包没有显示`Real-Time Transport Protocol`这一层
+
+![image-20250520163548873](从零编写一个RTSP服务器.assets/image-20250520163548873.png)
+
+#### 2.2 拉流包
+
+wirshark 常用过滤条件
+
+```txt
+tcp.port == 554 and ip.host == 127.0.0.1
+ip.src_host == 127.0.0.1
+ip.dst_host == 127.0.0.1
+tcp.srcport == 554
+tcp.dstport == 554
+```
+
+开始抓包：
+
+* wireshark 使用`tcp.port != 64097 and !rtcp and rtsp`进行过滤
+* 编译并启动客户端代码 `BXC_RtspClient-master\study1`
+
+![image-20250520171259931](从零编写一个RTSP服务器.assets/image-20250520171259931.png)
+
+可以看到，请求流程：OPTIONS、DESCRIBE、SETUP、PLAY，可以看到SETUP有两次，对应两路流
+
+上面的流程和前面的课程分析的差不多，这里就忽略掉。
+
+这里需要注意的点：
+
+* 客户端请求PLAY后，服务器回复的ACK包：
+
+  里面有个`RTP-Info`字段，包含两路流的信息，如果客户端代码做得完善点，可以通过这个字段做一个数据校验。
+
+  ![image-20250520172125040](从零编写一个RTSP服务器.assets/image-20250520172125040.png)
+
+### 3. 日志分析
+
+```cmd
+[I]2025-05-20 16:57:40 [13 RtspClient()]
+[I]2025-05-20 16:57:40 [54 connectServer()] RtspClient::connectServer：rtspUrl=rtsp://127.0.0.1:554/live/test
+
+
+---------------------------------------
+
+[I]2025-05-20 16:57:40 [311 sendCmdOverTcp()] size=88,buf=OPTIONS rtsp://127.0.0.1:554/live/test RTSP/1.0
+CSeq: 1
+User-Agent: BXC_RtspClient
+
+
+[I]2025-05-20 16:57:40 [129 startCmd()] bufCmdRecvSize=279,bufCmdRecv=RTSP/1.0 200 OK
+CSeq: 1
+Date: Tue, May 20 2025 08:57:40 GMT
+Public: OPTIONS, DESCRIBE, SETUP, TEARDOWN, PLAY, PAUSE, ANNOUNCE, RECORD, SET_PARAMETER, GET_PARAMETER
+Server: ZLMediaKit(git hash:046aaa3/2024-05-01T13:19:47+08:00,branch:master,build time:2024-08-22T19:41:17)
+
+
+
+
+---------------------------------------
+
+[I]2025-05-20 16:57:40 [311 sendCmdOverTcp()] size=114,buf=DESCRIBE rtsp://127.0.0.1:554/live/test RTSP/1.0
+Accept: application/sdp
+CSeq: 2
+User-Agent: BXC_RtspClient
+
+
+[I]2025-05-20 16:57:40 [129 startCmd()] bufCmdRecvSize=981,bufCmdRecv=RTSP/1.0 200 OK
+Content-Base: rtsp://127.0.0.1:554/live/test/
+Content-Length: 622
+Content-Type: application/sdp
+CSeq: 2
+Date: Tue, May 20 2025 08:57:40 GMT
+Server: ZLMediaKit(git hash:046aaa3/2024-05-01T13:19:47+08:00,branch:master,build time:2024-08-22T19:41:17)
+Session: ET6PZOujh9dV
+x-Accept-Dynamic-Rate: 1
+x-Accept-Retransmit: our-retransmit
+
+v=0
+o=- 0 0 IN IP4 0.0.0.0
+s=Streamed by ZLMediaKit(git hash:046aaa3/2024-05-01T13:19:47+08:00,branch:master,build time:2024-08-22T19:41:17)
+c=IN IP4 0.0.0.0
+t=0 0
+a=range:npt=now-
+a=control:*
+m=video 0 RTP/AVP 96
+b=AS:9109
+a=fmtp:96 packetization-mode=1; sprop-parameter-sets=Z01AKJZSgPAET8uAtQEBAUAAAPoAADqYOAAAAwMNPwAAC+vCLvLgoA==,aOuPIA==; profile-level-id=4D4028
+a=rtpmap:96 H264/90000
+a=control:streamid=0
+m=audio 0 RTP/AVP 97
+b=AS:195
+a=fmtp:97 profile-level-id=1;mode=AAC-hbr;sizelength=13;indexlength=3;indexdeltalength=3; config=121056E500
+a=rtpmap:97 MPEG4-GENERIC/44100/2
+a=control:streamid=1
+
+
+
+---------------------------------------
+
+[I]2025-05-20 16:57:40 [311 sendCmdOverTcp()] size=168,buf=SETUP rtsp://127.0.0.1:554/live/test/streamid=0 RTSP/1.0
+Transport: RTP/AVP/TCP;unicast;interleaved=0-1
+CSeq: 3
+User-Agent: BXC_RtspClient
+Session: ET6PZOujh9dV
+
+
+[I]2025-05-20 16:57:40 [129 startCmd()] bufCmdRecvSize=324,bufCmdRecv=RTSP/1.0 200 OK
+CSeq: 3
+Date: Tue, May 20 2025 08:57:40 GMT
+Server: ZLMediaKit(git hash:046aaa3/2024-05-01T13:19:47+08:00,branch:master,build time:2024-08-22T19:41:17)
+Session: ET6PZOujh9dV
+Transport: RTP/AVP/TCP;unicast;interleaved=0-1;ssrc=F4A5C0FB
+x-Dynamic-Rate: 1
+x-Transport-Options: late-tolerance=1.400000
+
+
+
+
+---------------------------------------
+
+[I]2025-05-20 16:57:40 [311 sendCmdOverTcp()] size=168,buf=SETUP rtsp://127.0.0.1:554/live/test/streamid=1 RTSP/1.0
+Transport: RTP/AVP/TCP;unicast;interleaved=2-3
+CSeq: 4
+User-Agent: BXC_RtspClient
+Session: ET6PZOujh9dV
+
+
+[I]2025-05-20 16:57:40 [129 startCmd()] bufCmdRecvSize=324,bufCmdRecv=RTSP/1.0 200 OK
+CSeq: 4
+Date: Tue, May 20 2025 08:57:40 GMT
+Server: ZLMediaKit(git hash:046aaa3/2024-05-01T13:19:47+08:00,branch:master,build time:2024-08-22T19:41:17)
+Session: ET6PZOujh9dV
+Transport: RTP/AVP/TCP;unicast;interleaved=2-3;ssrc=44AFCD6E
+x-Dynamic-Rate: 1
+x-Transport-Options: late-tolerance=1.400000
+
+
+[I]2025-05-20 16:57:40 [214 startCmd()] 发送(2次)track完成，开始发送Play请求
+
+
+---------------------------------------
+
+[I]2025-05-20 16:57:40 [311 sendCmdOverTcp()] size=127,buf=PLAY rtsp://127.0.0.1:554/live/test RTSP/1.0
+Range: npt=0.000-
+CSeq: 5
+User-Agent: BXC_RtspClient
+Session: ET6PZOujh9dV
+
+
+[I]2025-05-20 16:57:40 [129 startCmd()] bufCmdRecvSize=376,bufCmdRecv=RTSP/1.0 200 OK
+CSeq: 5
+Date: Tue, May 20 2025 08:57:40 GMT
+Range: npt=0.000-
+RTP-Info: url=rtsp://127.0.0.1:554/live/test/streamid=0;seq=46169;rtptime=186885180,url=rtsp://127.0.0.1:554/live/test/streamid=1;seq=46330;rtptime=1874345088
+Server: ZLMediaKit(git hash:046aaa3/2024-05-01T13:19:47+08:00,branch:master,build time:2024-08-22T19:41:17)
+Session: ET6PZOujh9dV
+
+
+[I]2025-05-20 16:57:40 [225 startCmd()] 接收到Play请求的响应
+```
+
+### 4. 代码讲解
+
+代码：`BXC_RtspClient-master\study1`
 
 
 
