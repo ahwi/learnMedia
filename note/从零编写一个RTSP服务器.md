@@ -1249,6 +1249,36 @@ Session: ET6PZOujh9dV
 
 
 
+## 第2节 解析RTP数据包中的H264码流，并写入本地文件且可直接播放
+
+### 1. 环境准备
+
+* 启动`ZLMediaKit`
+
+* 用`ffmpeg`推送视频流
+
+  推流命令：
+
+    ```cmd
+  # -an 表示不包含音频流
+  # -c:v h264 指定视频编码器为H.264 
+  ffmpeg -re -stream_loop -1 -i test.mp4 -rtsp_transport tcp -an -c:v h264 -f rtsp rtsp://127.0.0.1:554/live/test
+    ```
+
+* 运行`BXC_RtspClient-master\study2`代码，运行后会拉流并存成`.h264`文件
+
+### 2. 代码讲解
+
+代码基本流程：实时拉rtsp的视频流，拉过来后解析过滤掉rtp的头，以及rtp分包的h264视频流合成。
+
+依赖库：`BXC_RtspClient-master\study2`依赖于`RtpLibrary`
+
+参考文章：解析RTP包中的H264 `http://bilibili.com/read/cv26062324`
+
+
+
+
+
 
 
 ## 其他
