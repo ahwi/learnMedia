@@ -1267,11 +1267,61 @@ Session: ET6PZOujh9dV
 
 * 运行`BXC_RtspClient-master\study2`代码，运行后会拉流并存成`.h264`文件
 
-### 2. 代码讲解
+### 2. 代码编译说明
+
+`BXC_RtspClient-master\study2`依赖于`RtpLibrary`，作者的代码中没有包含，所以要从外部拷贝添加进来。
+
+添加`RtpLibrary`说明：
+
+* 从github中下载`ireader-media-server-master.zip`
+
+  链接：`https://github.com/zwfcz/ireader-media-server`
+
+* 解压`ireader-media-server-master.zip`并拷贝`librtp`目录到`BXC_RtspClient-master`中，并把目录名改为`RtpLibrary`
+
+  ![image-20250522105638329](从零编写一个RTSP服务器.assets/image-20250522105638329.png)
+
+* 打开`BXC_RtspClient.sln`工程
+
+* 如果vs的版本不同可能需要重定向项目（打开工程时，会有`重定向项目`弹框，点击确定即可）
+
+  ![image-20250522105750941](从零编写一个RTSP服务器.assets/image-20250522105750941.png)
+
+* 把`RtpLibrary`项目添加进来：
+
+  * `解决方案右击 --> 添加 --> 现有项目 --> 找到RtpLibrary目录下的librtp.vcxproj添加进来 `
+
+    <img src="从零编写一个RTSP服务器.assets/image-20250522105940116.png" alt="image-20250522105940116" style="zoom:50%;" />
+
+    <img src="从零编写一个RTSP服务器.assets/image-20250522110008605.png" alt="image-20250522110008605" style="zoom:50%;" />
+
+    ![image-20250522110255413](从零编写一个RTSP服务器.assets/image-20250522110255413.png)
+
+  * 右击`librtp`重命名为`RtpLibrary`
+
+  * `右击解决方案 --> 属性 --> 通用属性 --> 项目依赖项 --> 项目选择study2 --> 依赖于勾选 RtpLibrary  --> 确定`
+
+  
+
+  
+
+  
+
+  <img src="从零编写一个RTSP服务器.assets/image-20250522110519976.png" alt="image-20250522110519976" style="zoom:50%;" />
+
+  <img src="从零编写一个RTSP服务器.assets/image-20250522110749428.png" alt="image-20250522110749428" style="zoom:80%;" />
+
+  * 移除`RtpLibrary（未找到）`
+
+    ![image-20250522111204191](从零编写一个RTSP服务器.assets/image-20250522111204191.png)
+
+  * 编译`study2` `右击study2项目 --> 生成`
+
+
+
+### 3. 代码讲解
 
 代码基本流程：实时拉rtsp的视频流，拉过来后解析过滤掉rtp的头，以及rtp分包的h264视频流合成。
-
-依赖库：`BXC_RtspClient-master\study2`依赖于`RtpLibrary`
 
 参考文章：解析RTP包中的H264 `http://bilibili.com/read/cv26062324`
 
